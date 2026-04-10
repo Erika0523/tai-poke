@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ポケモン タイプ相性チェッカー</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Segoe UI', 'Hiragino Sans', 'Meiryo', sans-serif;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+      min-height: 100vh;
+      color: #fff;
+      padding: 24px 16px 60px;
+    }
+
+    h1 {
+      text-align: center;
+      font-size: 1.8em;
+      margin-bottom: 24px;
+      color: #FFD700;
+      text-shadow: 0 0 20px rgba(255,215,0,0.4);
+      letter-spacing: 0.05em;
+    }
+
+    .search-area {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      margin-bottom: 10px;
+      flex-wrap: wrap;
+    }
+
+    input {
+      padding: 12px 20px;
+      font-size: 1em;
+      border: 2px solid rgba(255,255,255,0.25);
+      border-radius: 30px;
+      width: 320px;
+      background: rgba(255,255,255,0.08);
+      color: #fff;
+      outline: none;
+      transition: border-color 0.25s;
+    }
+    input:focus { border-color: #FFD700; }
+    input::placeholder { color: rgba(255,255,255,0.4); }
+
+    button {
+      padding: 12px 26px;
+      font-size: 1em;
+      border: none;
+      border-radius: 30px;
+      background: #FFD700;
+      color: #222;
+      font-weight: bold;
+      cursor: pointer;
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+    button:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(255,215,0,0.35); }
+    button:active { transform: translateY(0); }
+
+    .hint {
+      text-align: center;
+      color: rgba(255,255,255,0.45);
+      font-size: 0.82em;
+      margin-bottom: 22px;
+    }
+    .hint span {
+      cursor: pointer;
+      color: rgba(255,215,0,0.7);
+      text-decoration: underline;
+      margin: 0 4px;
+    }
+    .hint span:hover { color: #FFD700; }
+
+    .pokemon-card {
+      max-width: 760px;
+      margin: 0 auto;
+      background: rgba(255,255,255,0.07);
+      border-radius: 24px;
+      padding: 28px;
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255,255,255,0.15);
+      animation: fadeIn 0.3s ease;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(12px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .pokemon-header {
+      display: flex;
+      align-items: center;
+      gap: 24px;
+      margin-bottom: 24px;
+      flex-wrap: wrap;
+    }
+    .sprite-wrap {
+      width: 130px; height: 130px;
+      background: rgba(255,255,255,0.05);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .sprite-wrap img {
+      width: 120px; height: 120px;
+      object-fit: contain;
+      filter: drop-shadow(0 4px 12px rgba(0,0,0,0.5));
+    }
+    .pokemon-info h2 { font-size: 2em; margin-bottom: 4px; line-height: 1.2; }
+    .pokemon-id { color: rgba(255,255,255,0.45); font-size: 0.85em; margin-bottom: 10px; }
+    .type-badges { display: flex; gap: 8px; flex-wrap: wrap; }
+    .type-badge {
+      padding: 5px 16px;
+      border-radius: 20px;
+      font-size: 0.9em;
+      font-weight: bold;
+      color: #fff;
+      text-shadow: 0 1px 3px rgba(0,0,0,0.4);
+    }
+
+    .matchup-title {
+      font-size: 1.05em;
+      font-weight: bold;
+      color: #FFD700;
+      margin-bottom: 14px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid rgba(255,215,0,0.25);
+    }
+    .matchup-table { width: 100%; border-collapse: collapse; border-radius: 12px; overflow: hidden; }
+    .matchup-table tr { border-bottom: 1px solid rgba(255,255,255,0.07); transition: background 0.15s; }
+    .matchup-table tr:last-child { border-bottom: none; }
+    .matchup-table tr:hover { background: rgba(255,255,255,0.05); }
+    .matchup-table tr.normal-row { opacity: 0.55; }
+    .matchup-table td { padding: 10px 14px; vertical-align: middle; }
+    .td-mult { width: 110px; white-space: nowrap; text-align: center; }
+    .mult-badge { display: inline-block; padding: 4px 14px; border-radius: 20px; font-weight: bold; font-size: 0.92em; }
+    .td-types { padding-left: 6px; }
+    .types-row { display: flex; flex-wrap: wrap; gap: 6px; }
+    .type-chip {
+      padding: 4px 13px;
+      border-radius: 20px;
+      font-size: 0.86em;
+      font-weight: bold;
+      color: #fff;
+      text-shadow: 0 1px 3px rgba(0,0,0,0.35);
+    }
+
+    .message { text-align: center; padding: 30px; font-size: 1.05em; }
+    .error   { color: #ff7b7b; }
+    .loading { color: #FFD700; }
+    .spinner {
+      display: inline-block;
+      width: 22px; height: 22px;
+      border: 3px solid rgba(255,215,0,0.3);
+      border-top-color: #FFD700;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      vertical-align: middle;
+      margin-right: 8px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    #index-status {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      background: rgba(10,20,40,0.95);
+      border-top: 1px solid rgba(255,255,255,0.1);
+      padding: 10px 20px;
+      font-size: 0.82em;
+      color: rgba(255,255,255,0.6);
+      display: none;
+      z-index: 100;
+    }
+    #index-status.visible { display: block; }
+    .progress-bar-wrap { height: 4px; background: rgba(255,255,255,0.1); border-radius: 2px; margin-top: 6px; overflow: hidden; }
+    .progress-bar { height: 100%; background: #FFD700; border-radius: 2px; transition: width 0.3s; }
+  </style>
+</head>
+<body>
+
+<h1>⚡ ポケモン タイプ相性チェッカー</h1>
+
+<div class="search-area">
+  <input type="text" id="poke-input" placeholder="例: ピカチュウ、リザードン、25" />
+  <button onclick="search()">検索</button>
+</div>
+
+<p class="hint">
+  例:
+  <span onclick="quickSearch('ピカチュウ')">ピカチュウ</span>
+  <span onclick="quickSearch('リザードン')">リザードン</span>
+  <span onclick="quickSearch('ゲンガー')">ゲンガー</span>
+  <span onclick="quickSearch('カビゴン')">カビゴン</span>
+  <span onclick="quickSearch('ガブリアス')">ガブリアス</span>
+</p>
+
+<div id="result"></div>
+
+<div id="index-status">
+  <span id="index-label">日本語名インデックスを構築中…（初回のみ）</span>
+  <div class="progress-bar-wrap">
+    <div class="progress-bar" id="index-bar" style="width:0%"></div>
+  </div>
+</div>
+
+<script>
+  // ── 定数 ─────────────────────────────────────────────────
+  const TYPES = {
+    normal:   { color: '#9099A1', ja: 'ノーマル' },
+    fire:     { color: '#FF6830', ja: 'ほのお'   },
+    water:    { color: '#4D90D5', ja: 'みず'     },
+    electric: { color: '#F4D23C', ja: 'でんき'   },
+    grass:    { color: '#63BB5B', ja: 'くさ'     },
+    ice:      { color: '#74CEC0', ja: 'こおり'   },
+    fighting: { color: '#CE4069', ja: 'かくとう' },
+    poison:   { color: '#AB6AC8', ja: 'どく'     },
+    ground:   { color: '#D97845', ja: 'じめん'   },
+    flying:   { color: '#8FA8DD', ja: 'ひこう'   },
+    psychic:  { color: '#F97176', ja: 'エスパー' },
+    bug:      { color: '#90C12C', ja: 'むし'     },
+    rock:     { color: '#C7B78B', ja: 'いわ'     },
+    ghost:    { color: '#5269AD', ja: 'ゴースト' },
+    dragon:   { color: '#0A6DC4', ja: 'ドラゴン' },
+    dark:     { color: '#5A5366', ja: 'あく'     },
+    steel:    { color: '#5A8EA1', ja: 'はがね'   },
+    fairy:    { color: '#EC8FE6', ja: 'フェアリー'},
+  };
+
+  const GROUPS = [
+    { mult: 4,    label: '×4　弱点', color: '#ff4444', bg: 'rgba(255,68,68,0.18)'         },
+    { mult: 2,    label: '×2　弱点', color: '#ff9944', bg: 'rgba(255,153,68,0.18)'        },
+    { mult: 0.5,  label: '×½　耐性', color: '#4db6ff', bg: 'rgba(77,182,255,0.18)'        },
+    { mult: 0.25, label: '×¼　耐性', color: '#4d88ff', bg: 'rgba(77,136,255,0.18)'        },
+    { mult: 0,    label: '×0　無効', color: '#999',    bg: 'rgba(140,140,140,0.18)'       },
+    { mult: 1,    label: '×1　通常', color: 'rgba(255,255,255,0.5)', bg: 'rgba(255,255,255,0.07)', normal: true },
+  ];
+
+  // ── 日本語名インデックス ──────────────────────────────────
+  // pokemon-species エンドポイントから全ポケモンの日本語名を取得し
+  // localStorage にキャッシュする（初回のみ時間がかかる）
+  const JaIndex = {
+    CACHE_KEY: 'poke_ja_index_v1',
+    _index: null,
+    _promise: null,
+
+    get() {
+      if (this._index)   return Promise.resolve(this._index);
+      if (this._promise) return this._promise;
+      return this._promise = this._build();
+    },
+
+    async _build() {
+      try {
+        const cached = localStorage.getItem(this.CACHE_KEY);
+        if (cached) return this._index = JSON.parse(cached);
+      } catch {}
+
+      Progress.show(true);
+      const { results } = await fetchJSON('https://pokeapi.co/api/v2/pokemon-species?limit=10000');
+      const index = {};
+      let done = 0;
+
+      for (let i = 0; i < results.length; i += 50) {
+        await Promise.all(results.slice(i, i + 50).map(async s => {
+          try {
+            const data = await fetchJSON(s.url);
+            const ja = data.names.find(n => n.language.name === 'ja-Hrkt')?.name
+                    ?? data.names.find(n => n.language.name === 'ja')?.name;
+            if (ja) index[ja] = s.name;
+          } catch {}
+          Progress.update(++done, results.length);
+        }));
+      }
+
+      try { localStorage.setItem(this.CACHE_KEY, JSON.stringify(index)); } catch {}
+      Progress.show(false);
+      return this._index = index;
+    },
+  };
+
+  // ── 進捗UI ────────────────────────────────────────────────
+  const Progress = {
+    show(visible) {
+      document.getElementById('index-status').classList.toggle('visible', visible);
+    },
+    update(done, total) {
+      document.getElementById('index-bar').style.width = `${Math.round(done / total * 100)}%`;
+      document.getElementById('index-label').textContent =
+        `日本語名インデックスを構築中… ${done} / ${total}（初回のみ）`;
+      if (done >= total) setTimeout(() => this.show(false), 800);
+    },
+  };
+
+  // ── 検索 ─────────────────────────────────────────────────
+  const input = document.getElementById('poke-input');
+  input.addEventListener('keydown', e => { if (e.key === 'Enter') search(); });
+
+  function quickSearch(name) { input.value = name; search(); }
+
+  async function search() {
+    const query = input.value.trim();
+    if (!query) return;
+
+    showMessage('読み込み中…');
+
+    try {
+      let slug = query;
+
+      if (/[\u3040-\u30FF\u4E00-\u9FAF]/.test(query)) {
+        showMessage('日本語名を検索中…');
+        const index = await JaIndex.get();
+        slug = index[query];
+        if (!slug) {
+          showError(`「${esc(query)}」は見つかりませんでした。<br>別の表記や英語名（例: pikachu）もお試しください。`);
+          return;
+        }
+      }
+
+      const pokemon = await fetchJSON(
+        `https://pokeapi.co/api/v2/pokemon/${encodeURIComponent(slug.toLowerCase())}`
+      );
+      const [typeData, species] = await Promise.all([
+        Promise.all(pokemon.types.map(t => fetchJSON(`https://pokeapi.co/api/v2/type/${t.type.name}`))),
+        fetchJSON(pokemon.species.url),
+      ]);
+
+      const jaName = species.names.find(n => n.language.name === 'ja-Hrkt')?.name
+                  ?? species.names.find(n => n.language.name === 'ja')?.name
+                  ?? pokemon.name;
+
+      render(pokemon, jaName, computeEffectiveness(typeData));
+    } catch {
+      showError(`「${esc(query)}」は見つかりませんでした。`);
+    }
+  }
+
+  // ── タイプ相性計算 ────────────────────────────────────────
+  function computeEffectiveness(typeDataArray) {
+    const m = Object.fromEntries(Object.keys(TYPES).map(t => [t, 1]));
+    for (const { damage_relations: dr } of typeDataArray) {
+      dr.double_damage_from.forEach(t => { if (t.name in m) m[t.name] *= 2; });
+      dr.half_damage_from.forEach(t =>   { if (t.name in m) m[t.name] *= 0.5; });
+      dr.no_damage_from.forEach(t =>     { if (t.name in m) m[t.name] *= 0; });
+    }
+    return m;
+  }
+
+  // ── 描画 ─────────────────────────────────────────────────
+  function render(pokemon, jaName, multipliers) {
+    const types  = pokemon.types.map(t => t.type.name);
+    const sprite = pokemon.sprites.other?.['official-artwork']?.front_default
+                ?? pokemon.sprites.front_default;
+    const number = String(pokemon.id).padStart(4, '0');
+    const buckets = groupByMultiplier(multipliers);
+
+    document.getElementById('result').innerHTML = `
+      <div class="pokemon-card">
+        ${renderHeader(jaName, pokemon.name, number, sprite, types)}
+        <div class="matchup-title">タイプ相性（受けるダメージ倍率）</div>
+        <table class="matchup-table">${renderRows(buckets)}</table>
+      </div>`;
+  }
+
+  function groupByMultiplier(multipliers) {
+    const buckets = { 4: [], 2: [], 1: [], 0.5: [], 0.25: [], 0: [] };
+    for (const [type, mult] of Object.entries(multipliers)) {
+      (buckets[mult] ?? buckets[1]).push(type);
+    }
+    return buckets;
+  }
+
+  function renderHeader(jaName, enName, number, sprite, types) {
+    return `
+      <div class="pokemon-header">
+        <div class="sprite-wrap">
+          ${sprite ? `<img src="${sprite}" alt="${esc(jaName)}">` : ''}
+        </div>
+        <div class="pokemon-info">
+          <h2>${esc(jaName)}</h2>
+          <div class="pokemon-id">No.${number} / ${esc(enName)}</div>
+          <div class="type-badges">
+            ${types.map(t => `<span class="type-badge" style="background:${TYPES[t].color}">${TYPES[t].ja}</span>`).join('')}
+          </div>
+        </div>
+      </div>`;
+  }
+
+  function renderRows(buckets) {
+    return GROUPS.map(({ mult, label, color, bg, normal }) => {
+      const list = buckets[mult];
+      if (!list?.length) return '';
+      return `
+        <tr class="${normal ? 'normal-row' : ''}">
+          <td class="td-mult">
+            <span class="mult-badge" style="color:${color};background:${bg};border:1px solid ${color}55">${label}</span>
+          </td>
+          <td class="td-types">
+            <div class="types-row">
+              ${list.map(t => `<span class="type-chip" style="background:${TYPES[t].color}">${TYPES[t].ja}</span>`).join('')}
+            </div>
+          </td>
+        </tr>`;
+    }).join('');
+  }
+
+  // ── ユーティリティ ────────────────────────────────────────
+  async function fetchJSON(url) {
+    const r = await fetch(url);
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    return r.json();
+  }
+
+  function showMessage(text) {
+    document.getElementById('result').innerHTML =
+      `<div class="message loading"><span class="spinner"></span>${text}</div>`;
+  }
+
+  function showError(html) {
+    document.getElementById('result').innerHTML = `<div class="message error">${html}</div>`;
+  }
+
+  function esc(str) {
+    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  // ページ読み込み時にバックグラウンドでインデックス構築を開始
+  window.addEventListener('load', () => {
+    if (!localStorage.getItem(JaIndex.CACHE_KEY)) JaIndex.get();
+  });
+</script>
+</body>
+</html>
